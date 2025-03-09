@@ -98,19 +98,81 @@ example {m n : ℕ} (coprime_mn : m.coprime n) : m^2 ≠ 2 * n^2 := by
     rwa [Nat.coprime_iff_gcd_eq_one.mp coprime_mn] at h₅
   norm_num at this
 
+/-
+The power of p in m*n is the sum of
+  the power of p in m
+  plus the power of p in n
+-/
 theorem factorization_mul' {m n : ℕ} (mnez : m ≠ 0) (nnez : n ≠ 0) (p : ℕ) :
   (m * n).factorization p = m.factorization p + n.factorization p := by
     rw [Nat.factorization_mul mnez nnez]
     rfl
 
+/-
+The power of p in n^k is
+  k times the power of p in n
+-/
 theorem factorization_pow' (n k p : ℕ) :
-  (n^k).factorization p = k * n.factorization p :=
-by { rw nat.factorization_pow, refl }
+  (n^k).factorization p = k * n.factorization p := by
+  rw [Nat.factorization_pow]
+  rfl
 
-theorem nat.prime.factorization' {p : ℕ} (prime_p : p.prime) :
-  p.factorization p = 1 :=
-by { rw prime_p.factorization, simp }
+theorem nat.prime.factorization' {p : ℕ} (prime_p : p.Prime) :
+  p.factorization p = 1 := by
+  rw [prime_p.factorization]
+  simp
 
+example {m n p : ℕ} (nnz : n ≠ 0) (prime_p : p.Prime) : m^2 ≠ p * n^2 := by
+  intro sqr_eq
+  have nsqr_nez : n^2 ≠ 0 := by simpa
+  have eq1 : Nat.factorization (m^2) p = 2 * m.factorization p := by
+    rw [factorization_pow']
+  have eq2 : (p * n^2).factorization p = 2 * n.factorization p + 1 := by
+    rw [
+      factorization_mul' (Nat.Prime.ne_zero prime_p) nsqr_nez,
+      factorization_pow',
+      nat.prime.factorization' prime_p,
+      add_comm
+    ]
+  have : (2 * m.factorization p) % 2 = (2 * n.factorization p + 1) % 2 := by
+    rw [←eq1, sqr_eq, eq2]
+  rw [add_comm, Nat.add_mul_mod_self_left, Nat.mul_mod_right] at this
+  norm_num at this
+
+/-
+If m^k = r * n^k for some m, n, k, r
+  then k divides the power of p in r for all prime p
+-/
+example {m n k r : ℕ} (nnz : n ≠ 0) (pow_eq : m^k = r * n^k)
+  {p : ℕ} (prime_p : p.Prime) : k ∣ r.factorization p := by
+  cases r with
+  | zero => simp
+  | succ r0 =>
+    have npow_nz : n^k ≠ 0 := by
+      by_contra npowz
+      rw [ne_eq] at nnz
+      exact absurd (pow_eq_zero npowz) nnz
+    have eq1 : (m^k).factorization p = k * m.factorization p := by
+      rw [factorization_pow']
+    have eq2 : (r0.succ * n^k).factorization p =
+      k * n.factorization p + r0.succ.factorization p := by
+      rw [
+        factorization_mul' (Nat.succ_ne_zero r0) npow_nz,
+        factorization_pow',
+        add_comm
+      ]
+    have eq3 : r0.succ.factorization p = k * (m.factorization p - n.factorization p) := by
+      rw [Nat.mul_sub_left_distrib k (m.factorization p) (n.factorization p)]
+      rw [←eq1, pow_eq, eq2, add_comm, Nat.add_sub_cancel]
+    rw [mul_comm] at eq3
+    rw [dvd_iff_exists_eq_mul_left]
+    exact ⟨ (Nat.factorization m p - Nat.factorization n p), eq3 ⟩
+
+#check mul_sub
+#check Nat.succ_ne_zero
+#check ne_eq
+#check pow_eq_zero
+#check Nat.Prime.ne_zero
 
 #check dvd_iff_exists_eq_mul_left
 #check Nat.Prime.dvd_of_dvd_pow
@@ -122,4 +184,8 @@ by { rw prime_p.factorization, simp }
 #check Nat.prod_factors
 #check Nat.factors_unique
 
+#check add_comm
+
 #eval Nat.factors 12
+
+example {m n k : ℕ} : k * (m - n) = k * m - k * n := Nat.mul_sub_left_distrib k m n
